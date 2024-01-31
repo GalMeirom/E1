@@ -10,22 +10,21 @@ def softmaxLoss(X,W,C):
  
     F = 0
     for k in range (C.shape[0]):  # C.shape is supposed to be the number of classes
-        F += np.matmul(np.transpose(C[k, :]) , np.log(calculateDiag(X,W,C,k)))
+        F += np.matmul(np.transpose(C[k, :]) , np.log(calculateDiag(X,W,k)))
     
     F = (-1/(X.shape[1])) * F
     return F
     
 
-def calculateDiag(X,W,C,k):
+def calculateDiag(X,W,k):
 
     # Calculate the diagonal multapliction from page 15 in the class Notes,
-    #   according to X with W weights, indicator C and running index k.
+    #   according to X with W weights, running index k.
     # Assumptions:
-        # X is : (t,m) 
-        # C is : (l,m)
+        # X is : (t,m)
         # W is : (t,l)
     sumOfExp = 0
-    for j in range(C.shape[0]):
+    for j in range(W.shape[1]):
         sumOfExp = sumOfExp + np.exp(np.matmul(np.transpose(X),W[:,j]))
     J = np.divide(np.exp(np.matmul(np.transpose(X),W[:,k])), sumOfExp)
     return J
@@ -43,22 +42,24 @@ def calculateSoftMaxGradW(X,W,C):
     return grad
 
     
-def calculateDiagGrad(X,W,C, k):
-    sumOfExp = 0
-    print(f'X Shape: {X.shape}')
-    print(f'W Shape: {W.shape}')
-    for j in range(C.shape[0]):
-        print(f'Wj Shape: {W[:,j].reshape(-1, 1).shape}')
-        print(f'Wj : {W[:,j]}')
-        temp = np.exp(np.matmul(np.transpose(X),W[:,j].reshape(-1, 1)))
-        print(f'temp shape: {temp.shape}')
-        sumOfExp = sumOfExp + temp
-        print(f'sumofexp Shape: {sumOfExp.shape}')
-        
-    print(f'C Shape: {C.shape}')
-    print(f"mashu shape: {np.divide(np.exp(np.matmul(np.transpose(X),W)), sumOfExp).shape}")
-    J = np.divide(np.exp(np.matmul(np.transpose(X),W[k,:])), sumOfExp) - C
-    return J
+def calculateDiagGrad(X,W,C):
+    res = []
+    for p in range(W.shape[1]):
+        Jp = calculateDiag(X, W, p).reshape(-1, 1)
+        res.append(Jp)
+    return np.hstack(res)
+
+def zeroTaylor(X, W, C , eps, d):
+    # Calculate gradient test
+    #   according to X with W weights, indicator C, eps number, d random generated normalized matrix.
+    # Assumptions:
+        # X is : (t,m) 
+        # C is : (l,m)
+        # W is : (t,l)
+        # d is : (t,m)
+
+    return np.linalg.norm(abs(softmaxLoss(X, W + eps * d, C) - softmaxLoss(X, W, C)))
+
 
 def gradTest(X, W, C , eps, d):
     # Calculate gradient test
@@ -68,7 +69,8 @@ def gradTest(X, W, C , eps, d):
         # C is : (l,m)
         # W is : (t,l)
         # d is : (t,m)
-    return abs(softmaxLoss(X + eps * d, W, C) - softmaxLoss(X, W, C) - eps * np.transpose(d)*calculateSoftMaxGradW(X, W, C))
+
+    return np.linalg.norm(abs(softmaxLoss(X, W + eps * d, C) - softmaxLoss(X, W, C) - eps * np.matmul(np.transpose(d),calculateSoftMaxGradW(X, W, C))))
 
 def genRandArr(rows, cols):
     return np.random.rand(rows,cols)
