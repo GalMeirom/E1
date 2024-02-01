@@ -96,6 +96,10 @@ def Q1C3(data):
     plt.title('Precent from different batches by different ephocs')
     plt.show()
 
+
+
+
+## Q2
             
 Data = ['SwissRollData','PeaksData','GMMData']            
 Q1C3(Data[2])

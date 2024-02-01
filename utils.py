@@ -1,5 +1,6 @@
 import numpy as np
 
+https://prod.liveshare.vsengsaas.visualstudio.com/join?5283521E0000F2B0B5D4A68ABA495BA1115E
 #### Functions
 def softmaxLoss(params):
     # Calculate the Soft-Max loss function according to X with W weights and indicator C
@@ -79,9 +80,11 @@ def calculateLLSGradX(params):
 def calculateDiagGrad(X,W,C):
     res = []
     for p in range(W.shape[1]):
-        Jp = calculateDiag(X, W, p).reshape(-1, 1)
+        Jp = np.exp(np.matmul(np.transpose(X), W[:,p]))
+        #Jp = calculateDiag(X, W, p).reshape(-1, 1) - C[p,:].reshape(-1, 1)
         res.append(Jp)
-    return np.hstack(res)
+    div = np.sum(res)
+    return np.matmul(np.exp(np.transpose(X), W), div) - C
 
 
 ## Convergence Tests
