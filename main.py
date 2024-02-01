@@ -92,7 +92,7 @@ def Q1C3(data):
             temp = params[1]
             params[0] = Xtbatches[i]
             params[2] = Ctbatches[i]
-            params = ut.SGD(ut.calculateSMGradW, params, 0.001)
+            params = ut.SGD(ut.calculateSMGradW, params, 0.01)
     
         # Preping training data for graph
         xGraph.append(epoch)
@@ -100,7 +100,7 @@ def Q1C3(data):
         selected_indices = np.random.choice(Xt.shape[1], sizeSubSemp, replace=False)
         SubSampXt = Xt[:, selected_indices]
         SubSampCt = Ct[:, selected_indices]
-        SubSampRes = scipy.special.softmax(np.matmul(np.transpose(params[1]), SubSampXt))
+        SubSampRes = np.matmul(np.transpose(params[1]), SubSampXt)
         for j in range(1, sizeSubSemp):
             if SubSampCt[np.argmax(SubSampRes[:, j]), j] == 1:
                SubSampPrecent = SubSampPrecent + 1
@@ -119,14 +119,32 @@ def Q1C3(data):
         yVGraphPrecent.append(100*SubSampPrecent/sizeSubSemp)
         yVGraphSoftMax.append(ut.softmaxLoss([SubSampXv, params[1], SubSampCv]))
 
-    plt.scatter(xGraph, yTGraphSoftMax, c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphSoftMax, c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.subplot(1,2,1)
+    plt.scatter(xGraph, yTGraphPrecent, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphPrecent, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
     plt.xlabel('Amount of ephocs')
     plt.ylabel('Precent of accuracy')
-    plt.title('Precent from different batches by different ephocs')
+    plt.legend()
+    plt.title('Accurercy from different sub-samples after different ephocs')
+    
+    plt.subplot(1,2,2)
+    plt.scatter(xGraph, yTGraphSoftMax, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphSoftMax, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Amount of ephocs')
+    plt.ylabel('Soft Max Lost')
+    plt.legend()
+    plt.title('Soft Max Loss from different sub-samples after different ephocs')
+    
+    plt.tight_layout()
     plt.show()
 
             
 Data = ['SwissRollData','PeaksData','GMMData']            
-Q1C3(Data[1])
+Q1C3(Data[0])
+
+
+# for each data set we used differnt hyper paramters that we found that work best.
+# for data set [0] PeaksData learning rate: 0.001, epochs: 100.
+# for data set [1] PeaksData learning rate: 0.001, epochs: 100.
+# for data set [2] GMMData learning rate: 0.001, epochs: 200.
 
