@@ -1,7 +1,18 @@
 import numpy as np
+import scipy
 
-https://prod.liveshare.vsengsaas.visualstudio.com/join?5283521E0000F2B0B5D4A68ABA495BA1115E
 #### Functions
+
+def softMax(params):
+      # Assumptions:
+        # params[0] = X is : (t,m) 
+        # params[1] = W is : (t,l)
+        # params[2] = C is : (l,m)
+    X = params[0]
+    W = params[1]
+    C = params[2]
+
+
 def softmaxLoss(params):
     # Calculate the Soft-Max loss function according to X with W weights and indicator C
     # Assumptions:
@@ -39,7 +50,7 @@ def calculateDiag(X,W,k):
     # Assumptions:
         # X is : (t,m)
         # W is : (t,l)
-    sumOfExp = 0
+    sumOfExp = np.zeros(np.matmul(X.T, W[:, 0]).shape)
     for j in range(W.shape[1]):
         sumOfExp = sumOfExp + np.exp(np.matmul(np.transpose(X),W[:,j]))
     J = np.divide(np.exp(np.matmul(np.transpose(X),W[:,k])), sumOfExp)
@@ -59,6 +70,8 @@ def calculateSMGradW(params):
     W = params[1]
     C = params[2]
     grad = 1/X.shape[1] *np.matmul(X,calculateDiagGrad(X,W,C))
+    #grad = 1/X.shape[1] * np.matmul(X, calculateDiagGrad(X, W, C) * calculateDiag(X, W, k))
+
     return grad
 
 def calculateLLSGradX(params):
@@ -80,11 +93,9 @@ def calculateLLSGradX(params):
 def calculateDiagGrad(X,W,C):
     res = []
     for p in range(W.shape[1]):
-        Jp = np.exp(np.matmul(np.transpose(X), W[:,p]))
-        #Jp = calculateDiag(X, W, p).reshape(-1, 1) - C[p,:].reshape(-1, 1)
+        Jp = calculateDiag(X, W, p).reshape(-1, 1) - C[p,:].reshape(-1,1)
         res.append(Jp)
-    div = np.sum(res)
-    return np.matmul(np.exp(np.transpose(X), W), div) - C
+    return np.hstack(res)
 
 
 ## Convergence Tests
@@ -133,6 +144,9 @@ def SGD(gradFunc, params, LR):
     return step
     
      
+def stackVert(A,B):
+    C = A.copy()
+    
 
 ## Plots
 

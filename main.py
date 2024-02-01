@@ -41,7 +41,7 @@ def Q1C2():
     for j in range(1, 15):
         err.append(ut.linearLeastSquares(params))
         x.append(j)
-        params = ut.SGD(ut.calculateLLSGradX, params, 0.1)
+        params = ut.SGD(ut.calculateLLSGradX, params, 0.3)
     plt.plot(x, err ,color = 'blue')
     plt.xlabel('Number of Iterations')
     plt.ylabel('Linear Least Squares Error')
@@ -52,56 +52,81 @@ def Q1C2():
 
 def Q1C3(data):
     mat = scipy.io.loadmat('data/' + data + '.mat')
+    
+    # training labels
     Ct = mat['Ct']
+    # training data
     Xt = mat['Yt']
+    # val labels
     Cv = mat['Cv']
+    # val data
     Xv = mat['Yv']
-    batchS = 400
-    numEpoch = 10
+    numBatches = 50
+    sizeSubSemp = 800
+    numEpoch = 100
+    
+    # Graph Lists 
     xGraph = []
-    yGraphPrecent = []
-    yGraphSoftMax = []
+    yTGraphPrecent = []
+    yTGraphSoftMax = []
+    yVGraphPrecent = []
+    yVGraphSoftMax = []
+    
+    # Initializing random weights
     W = ut.genRandArr(Xt.shape[0],Ct.shape[0])
     params = [Xt,W,Ct]
+    
+    # startin epochs
     for epoch in range(1, numEpoch):
+        # Training data
+        XtCopy = Xt.copy()
+        comb = np.vstack([XtCopy, Ct])
+        np.random.shuffle(np.transpose(comb))
+        temp = np.vsplit(comb, [XtCopy.shape[0]])
+        shuffXt = temp[0]
+        shuffCt = temp[1]
+        Xtbatches = np.hsplit(shuffXt, numBatches)
+        Ctbatches = np.hsplit(shuffCt, numBatches)
+        temp = 0
+        for i in range(len(Xtbatches)):
+            temp = params[1]
+            params[0] = Xtbatches[i]
+            params[2] = Ctbatches[i]
+            params = ut.SGD(ut.calculateSMGradW, params, 0.001)
+    
+        # Preping training data for graph
         xGraph.append(epoch)
-        for i in range(1, 1000):
-            params = ut.SGD(ut.calculateSMGradW, params, 0.1)
-        batchPrecent = 0
-        selected_indices = np.random.choice(Xt.shape[1], batchS, replace=False)
-        batchXt = Xt[:, selected_indices]
-        batchCt = Ct[:, selected_indices]
-        batchRes = np.matmul(np.transpose(W), batchXt)
-        for j in range(1, batchS):
-            if batchCt[np.argmax(batchRes[:, j]), j] == 1:
-               batchPrecent = batchPrecent + 1
-        yGraphPrecent.append(100*batchPrecent/batchS)
-        yGraphSoftMax.append(ut.softmaxLoss([batchXt, W, batchCt]))
-    batchPrecent = 0
-    selected_indices = np.random.choice(Xv.shape[1], batchS, replace=False)
-    batchXv = Xv[:, selected_indices]
-    batchCv = Cv[:, selected_indices]
-    batchResV = np.matmul(np.transpose(W), batchXv)
-    for m in range(1, batchS):
-        if batchCv[np.argmax(batchResV[:, m]), m] == 1:
-            batchPrecent = batchPrecent + 1
-    xGraph.append(numEpoch)
-    yGraphPrecent.append(100*batchPrecent/batchS)
-    yGraphSoftMax.append(ut.softmaxLoss([batchXv, W, batchCv]))
-    plt.scatter(xGraph, yGraphPrecent, c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph[numEpoch-1], yGraphPrecent[numEpoch-1], c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.text(xGraph[numEpoch-1], yGraphPrecent[numEpoch-1], "Test Batch", fontsize=8, ha='right', va='bottom')
+        SubSampPrecent = 0
+        selected_indices = np.random.choice(Xt.shape[1], sizeSubSemp, replace=False)
+        SubSampXt = Xt[:, selected_indices]
+        SubSampCt = Ct[:, selected_indices]
+        SubSampRes = scipy.special.softmax(np.matmul(np.transpose(params[1]), SubSampXt))
+        for j in range(1, sizeSubSemp):
+            if SubSampCt[np.argmax(SubSampRes[:, j]), j] == 1:
+               SubSampPrecent = SubSampPrecent + 1
+        yTGraphPrecent.append(100*SubSampPrecent/sizeSubSemp)
+        yTGraphSoftMax.append(ut.softmaxLoss([SubSampXt, params[1], SubSampCt]))
+
+        # preping validation data for graph
+        SubSampPrecent = 0
+        selected_indices = np.random.choice(Xv.shape[1], sizeSubSemp, replace=False)
+        SubSampXv = Xv[:, selected_indices]
+        SubSampCv = Cv[:, selected_indices]
+        SubSampRes = np.matmul(np.transpose(params[1]), SubSampXv)
+        for j in range(1, sizeSubSemp):
+            if SubSampCv[np.argmax(SubSampRes[:, j]), j] == 1:
+               SubSampPrecent = SubSampPrecent + 1
+        yVGraphPrecent.append(100*SubSampPrecent/sizeSubSemp)
+        yVGraphSoftMax.append(ut.softmaxLoss([SubSampXv, params[1], SubSampCv]))
+
+    plt.scatter(xGraph, yTGraphSoftMax, c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphSoftMax, c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
     plt.xlabel('Amount of ephocs')
     plt.ylabel('Precent of accuracy')
     plt.title('Precent from different batches by different ephocs')
     plt.show()
 
-
-
-
-## Q2
             
 Data = ['SwissRollData','PeaksData','GMMData']            
-Q1C3(Data[2])
-
+Q1C3(Data[1])
 
