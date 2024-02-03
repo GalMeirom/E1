@@ -1,46 +1,6 @@
 import numpy as np
 import scipy
 
-#### Functions
-
-def softMax(params):
-      # Assumptions:
-        # params[0] = X is : (t,m) 
-        # params[1] = W is : (t,l)
-        # params[2] = C is : (l,m)
-    X = params[0]
-    W = params[1]
-    C = params[2]
-
-
-def softmaxLoss(params):
-    # Calculate the Soft-Max loss function according to X with W weights and indicator C
-    # Assumptions:
-        # params[0] = X is : (t,m) 
-        # params[1] = W is : (t,l)
-        # params[2] = C is : (l,m)
-    X = params[0]
-    W = params[1]
-    C = params[2]
-    F = 0
-    for k in range (C.shape[0]):  # C.shape is supposed to be the number of classes
-        F += np.matmul(np.transpose(C[k, :]) , np.log(calculateDiag(X,W,k)))
-    
-    F = (-1/(X.shape[1])) * F
-    return F
-
-def linearLeastSquares(params):
-    # Calculate the Linear Lest Squares loss function according to X, A and B bias
-    # Assumptions:
-        # params[0] = A is : (n,m) 
-        # params[1] = X is : (m,t)
-        # params[2] = b is : (n,t)
-    A = params[0]
-    X = params[1]
-    b = params[2]
-    return np.linalg.norm(np.matmul(A, X) - b, 2)*0.5
-
-
 ## Satellite methods for Losses
 
 def calculateDiag(X,W,k):
@@ -56,37 +16,6 @@ def calculateDiag(X,W,k):
     J = np.divide(np.exp(np.matmul(np.transpose(X),W[:,k])), sumOfExp)
     return J
     
-
-## Gradient Functions
-
-def calculateSMGradW(params):
-    # Calculate the Soft-Max gradient by W,
-    #   according to X with W weights, indicator C.
-    # Assumptions:
-        # params[0] = X is : (t,m) 
-        # params[1] = W is : (t,l)
-        # params[2] = C is : (l,m)
-    X = params[0]
-    W = params[1]
-    C = params[2]
-    grad = 1/X.shape[1] *np.matmul(X,calculateDiagGrad(X,W,C))
-    #grad = 1/X.shape[1] * np.matmul(X, calculateDiagGrad(X, W, C) * calculateDiag(X, W, k))
-
-    return grad
-
-def calculateLLSGradX(params):
-    # Calculate the LLS gradient by X,
-    #   according to X with A, and b bias.
-    # Assumptions:
-        # params[0] = A is : (n,m) 
-        # params[1] = X is : (m,t)
-        # params[2] = b is : (n,t)
-    A = params[0]
-    X = params[1]
-    b = params[2]
-    return np.matmul(np.matmul(np.transpose(A), A), X) - np.matmul(np.transpose(A), b)
-
-
 ## Satellite methods for Gradients Functions
 
 
@@ -100,30 +29,46 @@ def calculateDiagGrad(X,W,C):
 
 ## Convergence Tests
 
-def zeroTaylor(X, W, C , eps, d):
-    # Calculate gradient test
-    #   according to X with W weights, indicator C, eps number, d random generated normalized matrix.
-    # Assumptions:
-        # X is : (t,m) 
-        # C is : (l,m)
-        # W is : (t,l)
-        # d is : (t,m)
-
-    return np.linalg.norm(abs(softmaxLoss([X, W + eps * d, C]) - softmaxLoss([X, W, C])))
+def zeroTaylor(f, k, eps, d):
+    beofre = f.forward()
+    temp = f.params[k]
+    f.set(k, f.params[k] + eps * d)
+    after = f.forward()
+    f.set(k, temp)
+    return np.linalg.norm(abs(after - beofre))
 
 
-def gradTest(params, func, gradFunc, eps, d):
-    # Calculate gradient test
-    #   according to parameters of a function, function f, gradient function of f,
-    #    some small epsilon and random generated normalized matrix d.
-    # Assumptions:
-        # X is : (t,m) 
-        # C is : (l,m)
-        # W is : (t,l)
-        # d is : (t,m)
-    shift = params.copy()
-    shift[1] = shift[1] + eps * d
-    return np.linalg.norm(abs(func(shift) - func(params) - eps * np.matmul(np.transpose(d),gradFunc(params))))
+def gradTest(f, k, eps, d):
+    beofre = f.forward()
+    temp = f.params[k]
+    f.set(k, f.params[k] + eps * d)
+    after = f.forward()
+    f.set(k, temp)
+    return np.linalg.norm(abs(after - beofre - eps * np.matmul(np.transpose(d),f.deriv(k))))
+
+def nnZeroTaylor(nn, eps):
+    beofre = nn.forward()
+    temp = nn.layers.copy()
+    for layer in nn.layers:
+        d = genRandNormArr(layer.params[1].shape[0],layer.params[1].shape[1])
+        layer.set(1, layer.params[1] + eps * d)
+    after = nn.forward()
+    nn.setLayers(temp)
+    return np.linalg.norm(abs(after - beofre))
+
+def nnGradTest(nn, eps):
+    beofre = nn.forward()
+    temp = nn.layers.copy()
+    grad = nn.grad()
+    dAcc = []
+    for layer in nn.layers:
+        d = genRandNormArr(layer.params[1].shape[0],layer.params[1].shape[1])
+        dAcc.append(d)
+        layer.set(1, layer.params[1] + eps * d)
+    dAcc = np.vstack(dAcc)
+    after = nn.forward()
+    nn.setLayers(temp)
+    return np.linalg.norm(abs(after - beofre - eps * np.matmul(np.transpose(dAcc), grad)))
 
 ## Utils
 
@@ -132,22 +77,11 @@ def genRandArr(rows, cols):
 
 def genRandNormArr(rows, cols):
     d = genRandArr(rows, cols)
-    return d/np.linalg.norm(d)
-
+    return d/np.linalg.norm(d, 2)
 
 ## Optimizations
 
 
-def SGD(gradFunc, params, LR):
-    step = params.copy()
-    step[1] = step[1] - LR * gradFunc(params)
-    return step
+def SGD(f, k, LR):
+    f.set(k, f.params[k] - LR * f.deriv(k))
     
-     
-def stackVert(A,B):
-    C = A.copy()
-    
-
-## Plots
-
-
