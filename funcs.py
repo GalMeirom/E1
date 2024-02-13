@@ -114,7 +114,8 @@ class layerFunc(func):
         self.params[k] = M
 
     def forward(self):
-        return self.act.forward(np.matmul(self.params[1], self.params[0]) + self.params[2])
+        mul = np.matmul(self.params[1], self.params[0])
+        return self.act.forward(mul + self.params[2])
 
     def deriv(self, k, v):
         if k == 0:
@@ -131,12 +132,18 @@ class layerFunc(func):
     
     def derivWTv(self, v):
         # [W.rows x X.rows]
-        output = np.matmul(np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0]) + self.params[2]), v), np.transpose(self.params[0]))
+        output = np.matmul(np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2]), v), np.transpose(self.params[0]))
         return output
     
     def derivBTv(self, v):
         # [W.rows x X.cols]
         output = np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2]), v) 
+        return output
+    
+    def derivTheta(self, v):
+        output = []
+        output.append(self.derivWTv(v[0]))
+        output.append(self.derivWTv(v[1]))
         return output
     
 
