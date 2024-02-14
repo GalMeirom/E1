@@ -9,8 +9,9 @@ class nn:
         self.LR = LR
         self.batchS = batchS
         dims.insert(0,X.shape[0])
-        for i in range(1, self.depth):
+        for i in range(1, self.depth-1):
             layers.append(funcs.layerFunc([X, ut.genRandNormArr(dims[i], dims[i-1]), ut.genRandNormArr(dims[i], batchS)], funcs.Tanh()))
+        layers.append(funcs.layerFunc([X, ut.genRandNormArr(dims[-1] + 1, dims[-2]), ut.genRandNormArr(dims[-1] + 1, batchS)], funcs.Tanh()))
         layers.append(funcs.SoftMaxLoss([X, ut.genRandNormArr(dims[-1], C.shape[0]), C]))
         self.layers = layers
         
@@ -39,39 +40,38 @@ class nn:
     def derivByThetaK(self, k):
         ks = []
         if k + 1 == len(self.layers):
+            ks.append(self.layers[-1].derivT(1))
+            return ks
+        else: 
+            output = self.layers[-1].derivT(0)
+            for i in range(len(self.layers) - 2, k, -1):
+                output = self.layers[i].derivT(0, output)
+            ks.append(self.layers[k].derivT(1, output))
+            ks.append(self.layers[k].derivT(2, output))
+            return ks
+    
+    def derivByThetaKGrad(self, k):
+        ks = []
+        if k + 1 == len(self.layers):
             ks.append(self.layers[-1].deriv(1))
             return ks
         else: 
             output = self.layers[-1].deriv(0)
             for i in range(len(self.layers) - 2, k, -1):
-                output = self.layers[i].deriv(0, output)
-            ks.append(self.layers[k].deriv(1, output))
-            ks.append(self.layers[k].deriv(2, output))
-            return ks
-    
-    def derivByThetaKGradT(self, k):
-        ks = []
-        if k + 1 == len(self.layers):
-            ks.append(np.matrix.flatten(self.layers[-1].deriv(1)).reshape(-1, 1))
-            return ks
-        else: 
-            output = self.layers[-1].deriv(0)
-            for i in range(len(self.layers) - 2, k, -1):
-                output = self.layers[i].deriv(0, output)
-            ks.append(self.layers[k].deriv(1, output).reshape(-1, 1))
-            ks.append(self.layers[k].deriv(2, output).reshape(-1, 1))
+                output = self.layers[i].derivT(0, output)
+            ks.append(self.layers[k].derivT(1, output))
+            ks.append(self.layers[k].derivT(2, output))
             return ks
     
     def grad(self):
         grads = []
-        gradVec = []
+        gradAcc = []
         for i in range(len(self.layers) - 1, -1, -1):
-            grads.append(self.derivByThetaKGradT(i))
-        for gradTheta in grads:
-            for grad in gradTheta:
-                gradVec.append(grad)
-        output = np.vstack(gradVec) 
-        return output
+            grads.append(self.derivByThetaKGrad(i))
+        for k in grads:
+            for param in k:
+               gradAcc.append(np.matrix.flatten(param).reshape(-1,1)) 
+        return gradAcc
     
     def backProp(self):
         grads = []
@@ -118,15 +118,15 @@ class Residnn:
     def derivByThetaK(self, k):
         ks = []
         if k + 1 == len(self.layers):
-            ks.append(self.layers[-1].deriv(1))
+            ks.append(self.layers[-1].derivT(1))
             return ks
         else: 
-            output = self.layers[-1].deriv(0)
+            output = self.layers[-1].derivT(0)
             for i in range(len(self.layers) - 2, k, -1):
-                output = self.layers[i].deriv(0, output)
-            ks.append(self.layers[k].deriv(1, output))
-            ks.append(self.layers[k].deriv(2, output))
-            ks.append(self.layers[k].deriv(3, output))
+                output = self.layers[i].derivT(0, output)
+            ks.append(self.layers[k].derivT(1, output))
+            ks.append(self.layers[k].derivT(2, output))
+            ks.append(self.layers[k].derivT(3, output))
             return ks
     
     def grad(self):

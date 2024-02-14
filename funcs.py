@@ -9,9 +9,15 @@ class func:
 class SoftMaxLoss(func):
     # params = [X, W1, C]
     def __init__(self, params):
+        b = ut.genRandArr(params[1].shape[1], 1)
+        params[1] = np.vstack([params[1], np.transpose(b)])
+        params[0] = np.vstack([params[0], np.ones((1,params[0].shape[1]))])
         super().__init__(params)
     
     def set(self, k, M):
+        # if k == 0:
+        #     self.params[0] = np.vstack([M, np.ones((1, M.shape[1]))])
+        # else:
         self.params[k] = M
 
     def deriv(self, k):
@@ -19,7 +25,13 @@ class SoftMaxLoss(func):
             return self.derivX()
         if k == 1:
             return self.derivW()
-
+    
+    def derivT(self, k):
+        if k == 0:
+            return self.derivXT()
+        if k == 1:
+            return self.derivWT()
+    
     def forward(self):
         # scalar
         F = 0
@@ -33,14 +45,33 @@ class SoftMaxLoss(func):
     #    # [X.rows x C.rows]
     #    grad = 1/self.params[0].shape[1] *np.matmul(self.params[0],ut.calculateDiagGrad(self.params[0],self.params[1],self.params[2]))
     #    return grad
-    
+    #   
+
+    # paper logics
+    # l is number of classes
+    # m is number of samples in batch
+    # n is number of features
+    # X in n on m
+    # W in n on l
+    # C in m on l
+
+
     def derivW(self):
         # [X.rows x C.rows]
         sum = np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, 0].reshape(-1, 1)))
         for j in range(1, self.params[1].shape[1]):
             sum = sum + np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, j].reshape(-1, 1)))
-        div = np.divide(np.exp(np.matmul(np.transpose(self.params[0]), self.params[1])), sum)
-        grad = 1/self.params[0].shape[1] *np.matmul(self.params[0],div - np.transpose(self.params[2]))
+        div = np.exp(np.matmul(np.transpose(self.params[0]), self.params[1]))/sum
+        grad = 1/self.params[0].shape[1] * np.matmul(self.params[0],div - np.transpose(self.params[2]))
+        return np.matrix.flatten(grad).reshape(-1,1)
+    
+    def derivWT(self):
+        # [X.rows x C.rows]
+        sum = np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, 0].reshape(-1, 1)))
+        for j in range(1, self.params[1].shape[1]):
+            sum = sum + np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, j].reshape(-1, 1)))
+        div = np.exp(np.matmul(np.transpose(self.params[0]), self.params[1]))/sum
+        grad = 1/self.params[0].shape[1] * np.matmul(self.params[0],div - np.transpose(self.params[2]))
         return grad
 
     #def derivX(self):
@@ -49,6 +80,14 @@ class SoftMaxLoss(func):
     #    return grad
 
     def derivX(self):
+        sum = np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, 0].reshape(-1, 1)))
+        for j in range(1, self.params[1].shape[1]):
+            sum = sum + np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, j].reshape(-1, 1)))
+        div = np.divide(np.exp(np.matmul(np.transpose(self.params[0]), self.params[1])), sum)
+        grad = 1/self.params[0].shape[1] *np.matmul(self.params[1],np.transpose(div - np.transpose(self.params[2])))
+        return np.matrix.flatten(grad).reshape(-1,1)
+    
+    def derivXT(self):
         sum = np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, 0].reshape(-1, 1)))
         for j in range(1, self.params[1].shape[1]):
             sum = sum + np.exp(np.matmul(np.transpose(self.params[0]), self.params[1][:, j].reshape(-1, 1)))
@@ -117,7 +156,7 @@ class layerFunc(func):
         mul = np.matmul(self.params[1], self.params[0])
         return self.act.forward(mul + self.params[2])
 
-    def deriv(self, k, v):
+    def derivT(self, k, v):
         if k == 0:
             return self.derivXTv(v)
         if k == 1:
@@ -127,12 +166,14 @@ class layerFunc(func):
 
     def derivXTv(self, v):
         # [W.cols x X.cols]
-        output = np.matmul(np.transpose(self.params[1]), np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0]) + self.params[2]), v))
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0]) + self.params[2])
+        output = np.matmul(np.transpose(self.params[1]), np.multiply(der, v))
         return output
     
     def derivWTv(self, v):
         # [W.rows x X.rows]
-        output = np.matmul(np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2]), v), np.transpose(self.params[0]))
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        output = np.matmul(np.multiply(der, v), np.transpose(self.params[0]))
         return output
     
     def derivBTv(self, v):
@@ -140,11 +181,32 @@ class layerFunc(func):
         output = np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2]), v) 
         return output
     
-    def derivTheta(self, v):
-        output = []
-        output.append(self.derivWTv(v[0]))
-        output.append(self.derivWTv(v[1]))
+    
+    def derivX(self):
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        dig = np.diag(np.matrix.flatten(der))
+        output = np.matmul(dig, self.params[1])
         return output
+    
+    def derivW(self):
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        dig = np.diag(np.matrix.flatten(der))
+        kr = np.kron(np.transpose(self.params[0]), np.identity(self.params[2].shape[0]))
+        output = np.matmul(dig, kr)
+        return output
+    
+    def derivB(self):
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        dig = np.diag(np.matrix.flatten(der))
+        return dig
+    
+    def deriv(self, k):
+        if k == 0:
+            return self.derivX()
+        if k == 1:
+            return self.derivW()
+        if k == 2:
+            return self.derivB()
     
 
 
@@ -161,7 +223,7 @@ class ResidlayerFunc(func):
     def forward(self):
         return self.params[0] + np.matmul(self.params[3] ,self.act.forward(np.matmul(self.params[1], self.params[0]) + self.params[2]))
 
-    def deriv(self, k, v):
+    def derivT(self, k, v):
         if k == 0:
             return self.derivXTv(v)
         if k == 1:
@@ -173,7 +235,9 @@ class ResidlayerFunc(func):
 
     def derivXTv(self, v):
         # [X.cols x X.cols]
-        output = np.identity(self.params[1].shape[1]) + np.matmul(np.transpose(self.params[0], np.multiply(self.act.deriv(np.matmul(self.params[1], self.params[0]) + self.params[2]), np.matmul(np.transpose(self.params[3]), v))))
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0]) + self.params[2])
+        three = np.matmul(np.transpose(self.params[3]), v)
+        output = np.matmul(np.identity(self.params[1].shape[1]), v) + np.matmul(np.transpose(self.params[1]), np.multiply(der, three))
         return output
     
     def derivW1Tv(self, v):
@@ -189,4 +253,40 @@ class ResidlayerFunc(func):
     def derivW2Tv(self, v):
         # [v.rows x W1.rows]
         output = np.matmul(v, np.transpose(self.act.forward(np.matmul(self.params[1], self.params[0]) + self.params[2])))    
+        return output
+
+    def deriv(self, k):
+        if k == 0:
+            return self.derivX()
+        if k == 1:
+            return self.derivW1()
+        if k == 2:
+            return self.derivB()
+        if k == 3:
+            return self.derivW2()
+    
+    def derivX(self):
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        dig = np.diag(np.matrix.flatten(der))
+        first = np.matmul(dig, self.params[1])
+        second = np.matmul(self.params[3], first)
+        output = np.identity(self.params[0].shape[0]) + second
+        return output
+    
+    def derivW1(self):
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        dig = np.diag(np.matrix.flatten(der))
+        kr = np.kron(np.transpose(self.params[0]), np.identity(self.params[2].shape[0]))
+        output = np.matmul(dig, kr)
+        output = np.matmul(self.params[3], output)
+        return output
+    
+    def derivB(self):
+        der = self.act.deriv(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        dig = np.diag(np.matrix.flatten(der))
+        return np.matmul(self.params[3] ,dig)
+    
+    def derivW2(self):
+        ford = self.act.forward(np.matmul(self.params[1], self.params[0])+ self.params[2])
+        output = np.kron(np.transpose(ford), np.identity(self.params[0].shape[0]))
         return output

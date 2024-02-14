@@ -50,46 +50,34 @@ def calculateDiagGrad(X,W,C):
 
 ## Convergence Tests
 
-def zeroTaylor(f, k, eps, d):
-    if k == 4:
-        beofre = f.forward()
-        tempW = f.params[1]
-        tempB = f.params[2]
-        f.set(1, f.params[1] + eps * d[0])
-        f.set(2, f.params[2] + eps * d[1])
-        after = f.forward()
-        f.set(1, tempW)
-        f.set(2, tempB)
-        return np.linalg.norm(abs(after - beofre))
-    else:
-        beofre = f.forward()
-        temp = f.params[k]
-        f.set(k, f.params[k] + eps * d)
-        after = f.forward()
-        f.set(k, temp)
-        return np.linalg.norm(abs(after - beofre))
+def testsLayer(f, k, eps, d):
+    beofre = f.forward()
+    grad = f.deriv(k)
+    temp = f.params[k]
+    f.set(k, f.params[k] + eps * d)
+    after = f.forward()
+    f.set(k, temp)
+    t0 = np.linalg.norm(after - beofre)
+    t1 = np.linalg.norm(after - beofre - eps * np.matmul(grad, np.matrix.flatten(d).reshape(-1, 1)))
+    return t0, t1
+
+def zeroTaylor(f, k, eps, dW):
+    beofre = f.forward()
+    temp = f.params[k]
+    f.set(k, f.params[k] + eps * dW)
+    after = f.forward()
+    f.set(k, temp)
+    return np.linalg.norm(abs(after - beofre))
 
 
 def gradTest(f, k, eps, d):
-    if k == 4:
-        beofre = f.forward()
-        grad = f.derivTheta(d)
-        tempW = f.params[1]
-        tempB = f.params[2]
-        f.set(1, f.params[1] + eps * d[0])
-        f.set(2, f.params[2] + eps * d[1])
-        after = f.forward()
-        f.set(1, tempW)
-        f.set(2, tempB)
-        return np.linalg.norm(abs(after - beofre - eps * np.matmul(np.transpose(np.matrix.flatten(d)),grad)))
-    else:
-        beofre = f.forward()
-        temp = f.params[k]
-        f.set(k, f.params[k] + eps * d)
-        after = f.forward()
-        f.set(k, temp)
-        grad = np.matrix.flatten(f.deriv(k))
-        return np.linalg.norm(abs(after - beofre - eps * np.matmul(np.transpose(np.matrix.flatten(d)),grad)))
+    beofre = f.forward()
+    temp = f.params[k]
+    f.set(k, f.params[k] + eps * d)
+    after = f.forward()
+    f.set(k, temp)
+    grad = f.deriv(k)
+    return np.linalg.norm(abs(after - beofre - eps * np.matmul(np.transpose(np.matrix.flatten(d)),grad)))
 
 def nnZeroTaylor(nn, eps):
     beofre = nn.forward()
@@ -101,26 +89,10 @@ def nnZeroTaylor(nn, eps):
     nn.setLayers(temp)
     return abs(after - beofre)
 
-def nnGradTest(nn, eps):
+def nnTest(nn, eps, dWs, dBs, dAcc, norm):
     beofre = nn.forward()
     temp = nn.layers.copy()
     grad = nn.grad()
-    dAcc = []
-    dWs = []
-    dBs = []
-    dW = genRandNormArr(nn.layers[-1].params[1].shape[0],nn.layers[-1].params[1].shape[1])
-    dWs.append(dW)
-    dAcc.append(np.matrix.flatten(dW).reshape(-1, 1))
-    for i in range(len(nn.layers) - 2, -1, -1):
-        dW = genRandNormArr(nn.layers[i].params[1].shape[0],nn.layers[i].params[1].shape[1])
-        dWs.append(dW)
-        dB = genRandNormArr(nn.layers[i].params[2].shape[0],nn.layers[i].params[2].shape[1])
-        dBs.append(dB)
-        dAcc.append(np.matrix.flatten(dW).reshape(-1, 1))
-        dAcc.append(np.matrix.flatten(dB).reshape(-1, 1))
-    dAcc = np.vstack(dAcc)
-    norm = np.linalg.norm(dAcc, 2)
-    dAcc = dAcc/np.linalg.norm(dAcc, 2)
     nn.layers[-1].set(1, nn.layers[-1].params[1] + eps * dWs[0]/ norm)
     for i in range(len(nn.layers) - 2, -1, -1):
         nn.layers[i].set(1, nn.layers[i].params[1] + eps * dWs[len(nn.layers) - 1 - i]/ norm)
@@ -131,11 +103,8 @@ def nnGradTest(nn, eps):
         nn.layers[i].set(1, nn.layers[i].params[1] - eps * dWs[len(nn.layers) - 1 - i]/ norm)
         nn.layers[i].set(2, nn.layers[i].params[2] - eps * dBs[len(nn.layers) - 2 - i]/ norm)
     a = nn.forward()
-    # print(beofre - a)
-    # print(f'without grad: {after - beofre}')
-    # print(f'This is what grad helps: {eps * np.matmul(np.transpose(dAcc), grad)}')
-    #nn.setLayers(temp)
-    return abs(after - beofre - eps * np.matmul(np.transpose(dAcc), grad)[0][0])
+    gradAll = np.vstack(grad)
+    return abs(after - beofre) ,abs(after - beofre - eps * np.matmul(np.transpose(dAcc), gradAll)[0][0])
 
 ## Utils
 
@@ -149,11 +118,14 @@ def genRandNormArr(rows, cols):
 def elmWiseMult(v, W):
     return np.vstack(list(map(lambda x:
                                     np.matmul(W, x),
-                                        np.vsplit(v,v.shape[0]/W.shape[1]))))
+                                        np.vsplit(v,v.shape[0]/W.shape[0]))))
+
+def Padx(x):
+    return np.vstack([x, np.ones((1,x.shape[1]))])
 
 ## Optimizations
 
 
 def SGD(f, k, LR):
-    f.set(k, f.params[k] - LR * f.deriv(k))
+    f.set(k, f.params[k] - LR * f.derivT(k))
     

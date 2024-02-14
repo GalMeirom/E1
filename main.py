@@ -19,12 +19,13 @@ def Q1C1(data):
     x = []
     Yt0 = []
     Yt1 = []
-    d = ut.genRandNormArr(W.shape[0],W.shape[1])
-    for e in range(1, 50 ,1):
-        delta = 0.05*e
+    
+    d = ut.genRandNormArr(sm.params[1].shape[0], sm.params[1].shape[1])
+    for e in range(1, 100 ,1):
+        delta = 0.01*e
         t0 = ut.zeroTaylor(sm, 1, delta, d)
         t1 = ut.gradTest(sm, 1, delta, d)
-        x.append(delta)
+        x.append(delta) 
         Yt0.append(t0)
         Yt1.append(t1)
     plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
@@ -34,7 +35,7 @@ def Q1C1(data):
     plt.title('Soft-Max Loss as a function of epsilon')
     plt.legend()
     plt.show()
-
+    
 def Q1C2():
     A = ut.genRandArr(8,6)
     X = ut.genRandArr(6,7)
@@ -53,7 +54,6 @@ def Q1C2():
     plt.title('Testing Stochastic Gradient Descent')
     plt.legend()
     plt.show()
-    
 
 def Q1C3(data):
     mat = scipy.io.loadmat('data/' + data + '.mat')
@@ -66,9 +66,9 @@ def Q1C3(data):
     Cv = mat['Cv']
     # val data
     Xv = mat['Yv']
-    numBatches = 781
+    numBatches = 500
     sizeSubSemp = 800
-    numEpoch = 400
+    numEpoch = 200
     
     # Graph Lists 
     xGraph = []
@@ -95,6 +95,7 @@ def Q1C3(data):
         Ctbatches = np.hsplit(shuffCt, numBatches)
         temp = 0
         for i in range(len(Xtbatches)):
+            Xtbatches[i] = ut.Padx(Xtbatches[i])
             sm.set(0, Xtbatches[i])
             sm.set(2,Ctbatches[i])
             ut.SGD(sm, 1, 0.001)
@@ -105,25 +106,31 @@ def Q1C3(data):
         selected_indices = np.random.choice(Xt.shape[1], sizeSubSemp, replace=False)
         SubSampXt = Xt[:, selected_indices]
         SubSampCt = Ct[:, selected_indices]
-        SubSampRes = ut.predict(SubSampXt, sm.params[1])
+        tempSubSampXt = np.vstack([SubSampXt, np.ones((1,SubSampXt.shape[1]))])
+        SubSampRes = ut.predict(tempSubSampXt, sm.params[1])
         for j in range(1, sizeSubSemp):
             if SubSampCt[np.argmax(SubSampRes[:, j]), j] == 1:
                SubSampPrecent = SubSampPrecent + 1
         yTGraphPrecent.append(100*SubSampPrecent/sizeSubSemp)
+        SubSampXt = ut.Padx(SubSampXt)
         sm.set(0, SubSampXt)
         sm.set(2, SubSampCt)
         yTGraphSoftMax.append(sm.forward())
-
+        
         # preping validation data for graph
         SubSampPrecent = 0
         selected_indices = np.random.choice(Xv.shape[1], sizeSubSemp, replace=False)
         SubSampXv = Xv[:, selected_indices]
         SubSampCv = Cv[:, selected_indices]
-        SubSampRes = ut.predict(SubSampXv, sm.params[1])
+        tempSubSampXv = np.vstack([SubSampXv, np.ones((1,SubSampXv.shape[1]))])
+        SubSampRes = ut.predict(tempSubSampXv, sm.params[1])
         for j in range(1, sizeSubSemp):
             if SubSampCv[np.argmax(SubSampRes[:, j]), j] == 1:
                SubSampPrecent = SubSampPrecent + 1
         yVGraphPrecent.append(100*SubSampPrecent/sizeSubSemp)
+        if (epoch % 50 == 0 ):
+                print(f'Epoch: {epoch+1}   |   Loss: {sm.forward()}   |   Accuracy:  {yVGraphPrecent[epoch-1]}')
+        SubSampXv = ut.Padx(SubSampXv)
         sm.set(0, SubSampXv)
         sm.set(2, SubSampCv)
         yVGraphSoftMax.append(sm.forward())
@@ -152,76 +159,149 @@ def Q1C3(data):
 ##Q2
     
 
-def Q2C1(data, width):
+def Q2C1sc1(data, width):
     mat = scipy.io.loadmat('data/'+data+'.mat')
-    Ct = mat['Ct']
     Xt = mat['Yt']
-    layer = f.layerFunc([Xt, ut.genRandNormArr(width, Xt.shape[0]), ut.genRandNormArr(width, Xt.shape[1])], f.Tanh())
+    Xt = Xt[:,0].reshape(-1, 1)
+    layer = f.layerFunc([Xt, ut.genRandArr(width, Xt.shape[0]), ut.genRandArr(width, 1)], f.Tanh())
     x = []
-    print(layer.params[0].shape)
-    print(layer.params[1].shape)
-    print(layer.params[2].shape)
     Yt0 = []
-    Yt1 = []
-    dW = ut.genRandNormArr(layer.params[1].shape[0],layer.params[1].shape[1])
-    dB = ut.genRandNormArr(layer.params[2].shape[0],layer.params[2].shape[1])
-    norm = np.linalg.norm(np.hstack([dW, dB]))
-    dW = dW/ norm
-    dB = dB/ norm
-    for e in range(1, 50 ,1):
-        delta = 0.05*e
-        t0 = ut.zeroTaylor(layer, 4, delta, [dW, dB])
-        t1 = ut.gradTest(layer, 4, delta, [dW, dB])
+    Yt1s = []
+    var = ['X', 'W', 'b']
+    Yt1s.append([])
+    Yt1s.append([])
+    Yt1s.append([])
+    d = []
+    d.append(ut.genRandNormArr(layer.params[0].shape[0],layer.params[0].shape[1]))
+    d.append(ut.genRandNormArr(layer.params[1].shape[0],layer.params[1].shape[1]))
+    d.append(ut.genRandNormArr(layer.params[2].shape[0],layer.params[2].shape[1]))
+    for e in range(1, 100 ,1):
+        delta = 0.01*e
+        t0, tX = ut.testsLayer(layer, 0, delta, d[0])
         x.append(delta)
         Yt0.append(t0)
-        Yt1.append(t1)
-    plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
-    plt.plot(x, Yt1,label = 'Taylor 1 expansion' ,color = 'blue')
-    plt.xlabel('Epsilon')
-    plt.ylabel('Soft Max Loss')
-    plt.title('Soft-Max Loss as a function of epsilon')
-    plt.legend()
+        Yt1s[0].append(tX)
+        for i in range(1, len(layer.params)):
+            t0, t = ut.testsLayer(layer, i, delta, d[i])
+            Yt1s[i].append(t)            
+    
+    for i in range(len(layer.params)):
+        plt.subplot(1, len(layer.params)+1, i+1)
+        plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
+        plt.plot(x, Yt1s[i],label = f'Taylor 1 expansion of {var[i]}' ,color = 'blue')
+        plt.xlabel('Epsilon')
+        plt.ylabel('Norm of the Error')
+        plt.title(f'Norm of the Error in variable {var[i]}')
+        plt.legend()
     plt.show()
 
-def Q2C2(data):
+def Q2C1sc2(data, width):
     mat = scipy.io.loadmat('data/'+data+'.mat')
-    Ct = mat['Ct']
     Xt = mat['Yt']
-    net = nn.Residnn(Xt, [5, 5], Ct, 0.01, Xt.shape[1])
+    Xt = Xt[:,0].reshape(-1, 1)
+    layer = f.layerFunc([Xt, ut.genRandArr(width, Xt.shape[0]), ut.genRandArr(width, 1)], f.Tanh())
+    d = []
+    for i in range(len(layer.params)):
+        grad = layer.deriv(i)
+        d.append([ut.genRandNormArr(layer.params[i].shape[0],layer.params[i].shape[1]), ut.genRandNormArr(grad.shape[0],1)])
+
+    for i in range(len(layer.params)):
+        currD = d[i]
+        v = np.matrix.flatten(currD[0]).reshape(-1, 1)
+        u = currD[1]
+        left = np.matmul(np.transpose(u), np.matmul(layer.deriv(i), v))
+        right = np.matmul(np.transpose(v), np.matrix.flatten(layer.derivT(i, u)).reshape(-1, 1))
+        print(abs(left - right))
+
+def Q2C2sc1(data, width):
+    mat = scipy.io.loadmat('data/'+data+'.mat')
+    Xt = mat['Yt']
+    Xt = Xt[:,0].reshape(-1, 1)
+    layer = f.ResidlayerFunc([Xt, ut.genRandArr(width, Xt.shape[0]), ut.genRandArr(width, 1), ut.genRandArr(Xt.shape[0], width)], f.Tanh())
     x = []
     Yt0 = []
-    Yt1 = []
-    for e in range(1, 50 ,1):
-        delta = 0.001 * e
-        t0 = ut.nnZeroTaylor(net, delta)
-        t1 = ut.nnGradTest(net, delta)
+    Yt1s = []
+    var = ['X', 'W1', 'b', 'W2']
+    Yt1s.append([])
+    Yt1s.append([])
+    Yt1s.append([])
+    Yt1s.append([])
+    d = []
+    d.append(ut.genRandNormArr(layer.params[0].shape[0],layer.params[0].shape[1]))
+    d.append(ut.genRandNormArr(layer.params[1].shape[0],layer.params[1].shape[1]))
+    d.append(ut.genRandNormArr(layer.params[2].shape[0],layer.params[2].shape[1]))
+    d.append(ut.genRandNormArr(layer.params[3].shape[0],layer.params[3].shape[1]))
+    for e in range(1, 100 ,1):
+        delta = 0.01*e
+        t0, tX = ut.testsLayer(layer, 0, delta, d[0])
         x.append(delta)
         Yt0.append(t0)
-        Yt1.append(t1)
-    plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
-    plt.plot(x, Yt1,label = 'Taylor 1 expansion' ,color = 'blue')
-    plt.xlabel('Epsilon')
-    plt.ylabel('Soft Max Loss')
-    plt.title('Soft-Max Loss as a function of epsilon')
-    plt.legend()
+        Yt1s[0].append(tX)
+        for i in range(1, len(layer.params)):
+            t0, t = ut.testsLayer(layer, i, delta, d[i])
+            Yt1s[i].append(t)            
+    
+    for i in range(len(layer.params)):
+        plt.subplot(1, len(layer.params)+1, i+1)
+        plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
+        plt.plot(x, Yt1s[i],label = f'Taylor 1 expansion of {var[i]}' ,color = 'blue')
+        plt.xlabel('Epsilon')
+        plt.ylabel('Norm of the Error')
+        plt.title(f'Norm of the Error in variable {var[i]}')
+        plt.legend()
     plt.show()
+
+def Q2C2sc2(data, width):
+    mat = scipy.io.loadmat('data/'+data+'.mat')
+    Xt = mat['Yt']
+    Xt = Xt[:,0].reshape(-1, 1)
+    layer = f.ResidlayerFunc([Xt, ut.genRandArr(width, Xt.shape[0]), ut.genRandArr(width, 1), ut.genRandArr(Xt.shape[0], width)], f.Tanh())
+    d = []
+    for i in range(len(layer.params)):
+        grad = layer.deriv(i)
+        d.append([ut.genRandNormArr(layer.params[i].shape[0],layer.params[i].shape[1]), ut.genRandNormArr(grad.shape[0],1)])
+
+    for i in range(len(layer.params)):
+        currD = d[i]
+        v = np.matrix.flatten(currD[0]).reshape(-1, 1)
+        u = currD[1]
+        left = np.matmul(np.transpose(u), np.matmul(layer.deriv(i), v))
+        right = np.matmul(np.transpose(v), np.matrix.flatten(layer.derivT(i, u)).reshape(-1, 1))
+        print(abs(left - right))
 
 def Q2C3(data):
     mat = scipy.io.loadmat('data/'+data+'.mat')
     Ct = mat['Ct']
     Xt = mat['Yt']
-    net = nn.nn(Xt, [5], Ct, 0.01, Xt.shape[1])
+    Xt = Xt[:,0].reshape(-1, 1)
+    Ct = Ct[:,0].reshape(-1, 1)
+    net = nn.nn(Xt, [32, 5], Ct, 0.01, Xt.shape[1])
     x = []
     Yt0 = []
     Yt1 = []
+    dAcc = []
+    dWs = []
+    dBs = []
+    dW = ut.genRandArr(net.layers[-1].params[1].shape[0],net.layers[-1].params[1].shape[1])
+    dWs.append(dW)
+    dAcc.append(np.matrix.flatten(dW).reshape(-1, 1))
+    for i in range(len(net.layers) - 2, -1, -1):
+        dW = ut.genRandArr(net.layers[i].params[1].shape[0],net.layers[i].params[1].shape[1])
+        dWs.append(dW)
+        dB = ut.genRandArr(net.layers[i].params[2].shape[0],net.layers[i].params[2].shape[1])
+        dBs.append(dB)
+        dAcc.append(np.matrix.flatten(dW).reshape(-1, 1))
+        dAcc.append(np.matrix.flatten(dB).reshape(-1, 1))
+    dAcc = np.vstack(dAcc)
+    norm = np.linalg.norm(dAcc)
+    dAcc = dAcc/norm
     for e in range(1, 100 ,1):
-        delta =  0.1 * e
-        t0 = ut.nnZeroTaylor(net, delta)
-        t1 = ut.nnGradTest(net, delta)
+        delta =  0.01 * e
+        t0, t1 = ut.nnTest(net, delta, dWs, dBs, dAcc, norm)
         x.append(delta)
         Yt0.append(t0)
         Yt1.append(t1)
-    #plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
+    plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
     plt.plot(x, Yt1,label = 'Taylor 1 expansion' ,color = 'blue')
     plt.xlabel('Epsilon')
     plt.ylabel('Soft Max Loss')
@@ -431,10 +511,11 @@ Data = ['SwissRollData','PeaksData','GMMData']
 # Q1C2()
 # Q1C3(Data[1])
 
-Q2C1(Data[1], 3)
-
-# Q2C2(Data[2])
-
+# Q2C1sc1(Data[1], 3)
+# Q2C1sc2(Data[1], 3)
+# Q2C2sc1(Data[2], 3)
+# Q2C2sc2(Data[2], 3)
+# Q2C3(Data[2])
 # Q2C4(Data[1], [32, 32, 5], 0.1)
 # Q2C5(Data[1], [32, 32, 5], 0.1)
 
@@ -448,12 +529,3 @@ Q2C1(Data[1], 3)
 #Q2C3
 # for data set [2] learning rate 0.05, epochs 280, 1 hidden layer, 32/64 hidden units
 # for data set [1] learning rate 0.1, epoches 1000,1 hidden layer, 64 hidden units
-
-# def f(x):
-#     return np.multiply([[1,2],[3,4]], x)
-# a = np.array([[1],[2],[3],[4]])
-# b = np.array([[1,2],[3,4]])
-# ls = np.vsplit(a,a.shape[0]/b.shape[1])
-# c = np.vstack(list(map(f, ls)))
-# print(c)
-# print(np.multiply([[1,2],[3,4]], [[1, 2, 3, 4]]))
