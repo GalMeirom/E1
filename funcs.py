@@ -107,6 +107,11 @@ class LinearLeastSquares(func):
     def deriv(self, k):
         if k == 1:
             return self.derivX()
+    
+    def derivT(self, k):
+        if k == 1:
+            return self.derivX()
+    
 
     def forward(self):
         return np.linalg.norm(np.matmul(self.params[0], self.params[1]) - self.params[2], 2)*0.5

@@ -21,7 +21,7 @@ def Q1C1(data):
     Yt1 = []
     
     d = ut.genRandNormArr(sm.params[1].shape[0], sm.params[1].shape[1])
-    for e in range(1, 100 ,1):
+    for e in range(1, 30 ,1):
         delta = 0.01*e
         t0 = ut.zeroTaylor(sm, 1, delta, d)
         t1 = ut.gradTest(sm, 1, delta, d)
@@ -31,8 +31,9 @@ def Q1C1(data):
     plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
     plt.plot(x, Yt1,label = 'Taylor 1 expansion' ,color = 'blue')
     plt.xlabel('Epsilon')
-    plt.ylabel('Soft Max Loss')
-    plt.title('Soft-Max Loss as a function of epsilon')
+    plt.ylabel('Soft Max Loss Error')
+    plt.title('Soft-Max Loss Error as a function of epsilon')
+    plt.title('Soft-Max Loss Error as a function of epsilon')
     plt.legend()
     plt.show()
     
@@ -44,13 +45,13 @@ def Q1C2():
     x = []
     err = []
     llr = f.LinearLeastSquares(params)
-    for j in range(1, 100):
+    for j in range(1, 20):
         err.append(llr.forward())
         x.append(j)
         ut.SGD(llr, 1, 0.1)
     plt.plot(x, err ,color = 'blue')
     plt.xlabel('Number of Iterations')
-    plt.ylabel('Linear Least Squares Error')
+    plt.ylabel('Linear Least Squares')
     plt.title('Testing Stochastic Gradient Descent')
     plt.legend()
     plt.show()
@@ -68,7 +69,7 @@ def Q1C3(data):
     Xv = mat['Yv']
     numBatches = 500
     sizeSubSemp = 800
-    numEpoch = 200
+    numEpoch = 600
     
     # Graph Lists 
     xGraph = []
@@ -98,7 +99,7 @@ def Q1C3(data):
             Xtbatches[i] = ut.Padx(Xtbatches[i])
             sm.set(0, Xtbatches[i])
             sm.set(2,Ctbatches[i])
-            ut.SGD(sm, 1, 0.001)
+            ut.SGD(sm, 1, 0.0001)
     
         # Preping training data for graph
         xGraph.append(epoch)
@@ -128,28 +129,26 @@ def Q1C3(data):
             if SubSampCv[np.argmax(SubSampRes[:, j]), j] == 1:
                SubSampPrecent = SubSampPrecent + 1
         yVGraphPrecent.append(100*SubSampPrecent/sizeSubSemp)
-        if (epoch % 50 == 0 ):
-                print(f'Epoch: {epoch+1}   |   Loss: {sm.forward()}   |   Accuracy:  {yVGraphPrecent[epoch-1]}')
         SubSampXv = ut.Padx(SubSampXv)
         sm.set(0, SubSampXv)
         sm.set(2, SubSampCv)
         yVGraphSoftMax.append(sm.forward())
 
     plt.subplot(1,2,1)
-    plt.scatter(xGraph, yTGraphPrecent, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphPrecent, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.xlabel('Amount of ephocs')
-    plt.ylabel('Precent of accuracy')
+    plt.scatter(xGraph, yTGraphPrecent, label='Training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphPrecent, label='Validation', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Number of ephocs')
+    plt.ylabel('Accuracy')
     plt.legend()
-    plt.title('Accurercy from different sub-samples after different ephocs')
+    plt.title('Accuracy as a function of the number of ephocs')
     
     plt.subplot(1,2,2)
-    plt.scatter(xGraph, yTGraphSoftMax, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphSoftMax, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.xlabel('Amount of ephocs')
-    plt.ylabel('Soft Max Lost')
+    plt.scatter(xGraph, yTGraphSoftMax, label='Training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphSoftMax, label='Validation', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Number of ephocs')
+    plt.ylabel('Soft-Max Lost')
     plt.legend()
-    plt.title('Soft Max Loss from different sub-samples after different ephocs')
+    plt.title('Soft-Max Loss as a function of the number of ephocs')
     
     plt.tight_layout()
     plt.show()
@@ -187,11 +186,11 @@ def Q2C1sc1(data, width):
     
     for i in range(len(layer.params)):
         plt.subplot(1, len(layer.params)+1, i+1)
-        plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
-        plt.plot(x, Yt1s[i],label = f'Taylor 1 expansion of {var[i]}' ,color = 'blue')
+        plt.plot(x, Yt0,label = 'Taylor 0 approximation' ,color = 'red')
+        plt.plot(x, Yt1s[i],label = f'Taylor 1 approximation of {var[i]}' ,color = 'blue')
         plt.xlabel('Epsilon')
         plt.ylabel('Norm of the Error')
-        plt.title(f'Norm of the Error in variable {var[i]}')
+        plt.title(f'Norm of the Error w.r.t {var[i]}')
         plt.legend()
     plt.show()
 
@@ -201,6 +200,7 @@ def Q2C1sc2(data, width):
     Xt = Xt[:,0].reshape(-1, 1)
     layer = f.layerFunc([Xt, ut.genRandArr(width, Xt.shape[0]), ut.genRandArr(width, 1)], f.Tanh())
     d = []
+    var = ['X', 'W', 'b']
     for i in range(len(layer.params)):
         grad = layer.deriv(i)
         d.append([ut.genRandNormArr(layer.params[i].shape[0],layer.params[i].shape[1]), ut.genRandNormArr(grad.shape[0],1)])
@@ -211,7 +211,7 @@ def Q2C1sc2(data, width):
         u = currD[1]
         left = np.matmul(np.transpose(u), np.matmul(layer.deriv(i), v))
         right = np.matmul(np.transpose(v), np.matrix.flatten(layer.derivT(i, u)).reshape(-1, 1))
-        print(abs(left - right))
+        print(f'The Jacobian Transpose test w.r.t {var[i]} is {abs(left - right)[0][0]}')
 
 def Q2C2sc1(data, width):
     mat = scipy.io.loadmat('data/'+data+'.mat')
@@ -246,8 +246,8 @@ def Q2C2sc1(data, width):
         plt.plot(x, Yt0,label = 'Taylor 0 expansion' ,color = 'red')
         plt.plot(x, Yt1s[i],label = f'Taylor 1 expansion of {var[i]}' ,color = 'blue')
         plt.xlabel('Epsilon')
-        plt.ylabel('Norm of the Error')
-        plt.title(f'Norm of the Error in variable {var[i]}')
+        plt.ylabel("Error's Norm")
+        plt.title(f"Error's Norm w.r.t {var[i]}")
         plt.legend()
     plt.show()
 
@@ -257,6 +257,7 @@ def Q2C2sc2(data, width):
     Xt = Xt[:,0].reshape(-1, 1)
     layer = f.ResidlayerFunc([Xt, ut.genRandArr(width, Xt.shape[0]), ut.genRandArr(width, 1), ut.genRandArr(Xt.shape[0], width)], f.Tanh())
     d = []
+    var = ['X', 'W1', 'b', 'W2']
     for i in range(len(layer.params)):
         grad = layer.deriv(i)
         d.append([ut.genRandNormArr(layer.params[i].shape[0],layer.params[i].shape[1]), ut.genRandNormArr(grad.shape[0],1)])
@@ -267,15 +268,16 @@ def Q2C2sc2(data, width):
         u = currD[1]
         left = np.matmul(np.transpose(u), np.matmul(layer.deriv(i), v))
         right = np.matmul(np.transpose(v), np.matrix.flatten(layer.derivT(i, u)).reshape(-1, 1))
-        print(abs(left - right))
+        print(f'The Jacobian Transpose test w.r.t {var[i]} is {abs(left - right)[0][0]}')
 
-def Q2C3(data):
+def Q2C3(data, L):
     mat = scipy.io.loadmat('data/'+data+'.mat')
     Ct = mat['Ct']
     Xt = mat['Yt']
     Xt = Xt[:,0].reshape(-1, 1)
     Ct = Ct[:,0].reshape(-1, 1)
-    net = nn.nn(Xt, [32, 5], Ct, 0.01, Xt.shape[1])
+    dims = np.random.randint(low=3, high=10, size=L).tolist()
+    net = nn.nn(Xt, dims, Ct, 0.01, Xt.shape[1])
     x = []
     Yt0 = []
     Yt1 = []
@@ -322,7 +324,7 @@ def Q2C4(data, dims, LR):
     Xv = mat['Yv']
     numBatches = 50
     sizeSubSemp = int(Xt.shape[1]/numBatches)
-    numEpoch = 1000
+    numEpoch = 1600
     
     # Graph Lists 
     xGraph = []
@@ -386,20 +388,20 @@ def Q2C4(data, dims, LR):
         yVGraphSoftMax.append(net.forward())
 
     plt.subplot(1,2,1)
-    plt.scatter(xGraph, yTGraphPrecent, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphPrecent, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.xlabel('Amount of ephocs')
-    plt.ylabel('Precent of accuracy')
+    plt.scatter(xGraph, yTGraphPrecent, label='Training batch', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphPrecent, label='Validatiotn batch', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Number of ephocs')
+    plt.ylabel('Accuracy')
     plt.legend()
-    plt.title('Accurercy from different sub-samples after different ephocs')
+    plt.title('Accuracy as a function of the number of ephocs')
     
     plt.subplot(1,2,2)
-    plt.scatter(xGraph, yTGraphSoftMax, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphSoftMax, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.xlabel('Amount of ephocs')
+    plt.scatter(xGraph, yTGraphSoftMax, label='Training batch', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphSoftMax, label='Validatiotn batch', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Number of ephocs')
     plt.ylabel('Soft Max Lost')
     plt.legend()
-    plt.title('Soft Max Loss from different sub-samples after different ephocs')
+    plt.title('Soft-Max Loss as a function of the number of ephocs')
     
     plt.tight_layout()
     plt.show()
@@ -420,7 +422,7 @@ def Q2C5(data, dims, LR):
     Ct = Ct[:, selected_indices]
     numBatches = 10
     sizeSubSemp = int(Xt.shape[1]/numBatches)
-    numEpoch = 1000
+    numEpoch = 1600
     
     # Graph Lists 
     xGraph = []
@@ -484,20 +486,20 @@ def Q2C5(data, dims, LR):
         yVGraphSoftMax.append(net.forward())
 
     plt.subplot(1,2,1)
-    plt.scatter(xGraph, yTGraphPrecent, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphPrecent, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.xlabel('Amount of ephocs')
-    plt.ylabel('Precent of accuracy')
+    plt.scatter(xGraph, yTGraphPrecent, label='Training batch', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphPrecent, label='Validatiotn batch', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Number of ephocs')
+    plt.ylabel('Accuracy')
     plt.legend()
-    plt.title('Accurercy from different sub-samples after different ephocs')
+    plt.title('Accuracy as a function of the number of ephocs')
     
     plt.subplot(1,2,2)
-    plt.scatter(xGraph, yTGraphSoftMax, label='training', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.scatter(xGraph, yVGraphSoftMax, label='val', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
-    plt.xlabel('Amount of ephocs')
+    plt.scatter(xGraph, yTGraphSoftMax, label='Training batch', c='blue', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.scatter(xGraph, yVGraphSoftMax, label='Validatiotn batch', c='red', marker='o', s=50, edgecolors='black', alpha=0.7)
+    plt.xlabel('Number of ephocs')
     plt.ylabel('Soft Max Lost')
     plt.legend()
-    plt.title('Soft Max Loss from different sub-samples after different ephocs')
+    plt.title('Soft-Max Loss as a function of the number of ephocs')
     
     plt.tight_layout()
     plt.show()
@@ -507,16 +509,16 @@ def Q2C5(data, dims, LR):
 
 
 Data = ['SwissRollData','PeaksData','GMMData']            
-# Q1C1(Data[1])
+# Q1C1(Data[0])
 # Q1C2()
-# Q1C3(Data[1])
+# Q1C3(Data[0])
 
 # Q2C1sc1(Data[1], 3)
 # Q2C1sc2(Data[1], 3)
 # Q2C2sc1(Data[2], 3)
 # Q2C2sc2(Data[2], 3)
-# Q2C3(Data[2])
-# Q2C4(Data[1], [32, 32, 5], 0.1)
+# Q2C3(Data[2], 3)
+# Q2C4(Data[0], [32, 32, 5], 0.1)
 # Q2C5(Data[1], [32, 32, 5], 0.1)
 
 
